@@ -1,4 +1,6 @@
+
 {% extends 'base.html' %}
+{% load form_tags %}
 
 {% block content %}
 <div class="container mt-4">
@@ -17,17 +19,17 @@
                 
                 <div class="mb-3">
                     <label for="id_short_description" class="form-label">Short Description</label>
-                    {{ form.short_description }}
+                    {{ form.short_description|add_class:"form-control" }}
                 </div>
                 
                 <div class="mb-3">
                     <label for="id_long_description" class="form-label">Long Description</label>
-                    {{ form.long_description }}
+                    {{ form.long_description|add_class:"form-control" }}
                 </div>
                 
                 <div class="mb-3">
                     <label for="id_domain_tags" class="form-label">Domain Tags</label>
-                    {{ form.domain_tags }}
+                    {{ form.domain_tags|add_class:"form-control" }}
                 </div>
                 
                 <div class="mb-3">
@@ -41,7 +43,7 @@
                 </div>
                 
                 <button type="submit" class="btn btn-primary">Create Club</button>
-                <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
+                <a href="{% url 'manage_clubs' %}" class="btn btn-secondary">Cancel</a>
             </form>
         </div>
     </div>
