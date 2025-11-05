@@ -75,6 +75,17 @@
                         {% endif %}
                     </div>
                     
+                    {% if request.user in club.founders.all or request.user == club.president or request.user == club.vice_president %}
+                        <div class="mb-3">
+                            <h5 class="mb-2">Club Management</h5>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="{% url 'create_club_post' club.id %}" class="btn btn-primary">
+                                    <i class="fas fa-plus-square"></i> Create Post
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
                     {% if not is_member and not user.is_staff %}
                         <form method="post" action="{% url 'register_for_club' club.id %}">
                             {% csrf_token %}
@@ -89,11 +100,6 @@
                             <a href="{% url 'club_chat' club.id %}" class="btn btn-outline-primary">
                                 <i class="fas fa-comments"></i> Club Chat
                             </a>
-                            {% if request.user in club.founders.all or request.user == club.president or request.user == club.vice_president %}
-                                <a href="{% url 'create_club_post' club.id %}" class="btn btn-primary">
-                                    <i class="fas fa-plus-square"></i> Create Post
-                                </a>
-                            {% endif %}
                             <a href="{% url 'submit_club_feedback' club.id %}" class="btn btn-outline-info">
                                 <i class="fas fa-comment-dots"></i> Submit Feedback
                             </a>

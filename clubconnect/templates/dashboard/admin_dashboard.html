@@ -34,14 +34,62 @@
                 </div>
             </div>
             
-            <!-- User Activity Chart -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">User Activity</h5>
+            <!-- Analytics Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Users</h5>
+                            <p class="card-text display-4" id="totalUsersCount">{{ total_users }}</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="chart-container">
-                        <canvas id="userActivityChart"></canvas>
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Clubs</h5>
+                            <p class="card-text display-4" id="totalClubsCount">{{ total_clubs }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Events</h5>
+                            <p class="card-text display-4" id="totalEventsCount">{{ total_events }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Upcoming Events</h5>
+                            <p class="card-text display-4" id="upcomingEventsCount">{{ upcoming_events_count }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Activity Charts -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">User Sign-ins (Last 7 Days)</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="signinsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">User Sign-ups (Last 7 Days)</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="signupsChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -119,29 +167,95 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        var userActivityData = JSON.parse('{{ user_activity_data|safe }}');
-        var ctx = document.getElementById('userActivityChart').getContext('2d');
-        var userActivityChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: userActivityData.labels,
-                datasets: [{
-                    label: 'User Signups',
-                    data: userActivityData.data,
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+    let signinsChart = null;
+    let signupsChart = null;
+
+    function updateAnalytics() {
+        fetch('/dashboard/ajax/admin_analytics/')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('totalUsersCount').textContent = data.total_users;
+                document.getElementById('totalClubsCount').textContent = data.total_clubs;
+                document.getElementById('totalEventsCount').textContent = data.total_events;
+                document.getElementById('upcomingEventsCount').textContent = data.upcoming_events;
+
+                if (signinsChart) {
+                    signinsChart.data.labels = data.signin_labels;
+                    signinsChart.data.datasets[0].data = data.signin_data;
+                    signinsChart.update();
+                } else {
+                    const signinsCtx = document.getElementById('signinsChart').getContext('2d');
+                    signinsChart = new Chart(signinsCtx, {
+                        type: 'line',
+                        data: {
+                            labels: data.signin_labels,
+                            datasets: [{
+                                label: 'Daily Sign-ins',
+                                data: data.signin_data,
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
                 }
-            }
-        });
+
+                if (signupsChart) {
+                    signupsChart.data.labels = data.signin_labels;
+                    signupsChart.data.datasets[0].data = data.signup_data;
+                    signupsChart.update();
+                } else {
+                    const signupsCtx = document.getElementById('signupsChart').getContext('2d');
+                    signupsChart = new Chart(signupsCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.signin_labels,
+                            datasets: [{
+                                label: 'Daily Sign-ups',
+                                data: data.signup_data,
+                                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching analytics data:', error);
+            });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        updateAnalytics();
+        
+        setInterval(updateAnalytics, 600000);
     });
 </script>
 {% endblock %}
