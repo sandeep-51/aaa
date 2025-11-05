@@ -17,4 +17,16 @@ urlpatterns = [
     path('membership/<int:membership_id>/reject/', views.reject_membership, name='reject_membership'),
     path('<int:club_id>/create-announcement/', views.create_club_announcement, name='create_club_announcement'),
     path('announcement/<int:announcement_id>/delete/', views.delete_club_announcement, name='delete_club_announcement'),
+    
+    path('event/<int:event_id>/generate-qr/', views.generate_event_qr, name='generate_event_qr'),
+    path('event/<int:event_id>/checkin/', views.event_checkin, name='event_checkin'),
+    
+    path('<int:club_id>/create-survey/', views.create_survey, name='create_survey'),
+    path('survey/<int:survey_id>/', views.view_survey, name='view_survey'),
+    path('survey/<int:survey_id>/results/', views.survey_results, name='survey_results'),
+    
+    path('<int:club_id>/create-post/', views.create_club_post, name='create_club_post'),
+    path('post/<int:post_id>/like/', views.like_post, name='like_post'),
+    
+    path('<int:club_id>/leaderboard/', views.club_leaderboard, name='club_leaderboard'),
 ]

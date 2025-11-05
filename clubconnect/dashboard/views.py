@@ -75,12 +75,23 @@ def dashboard(request):
     
     # Render different templates based on user type
     if user.is_admin():
-        user_activity_data = {
-            'labels': ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-            'data': [12, 19, 3, 5, 2, 3, 9],
-        }
+        from datetime import timedelta
+        from django.db.models import Count
+        from django.db.models.functions import TruncDate
+        
+        now = timezone.now()
+        seven_days_ago = now - timedelta(days=7)
+        
+        total_users_count = User.objects.count()
+        total_clubs_count = Club.objects.count()
+        total_events_count = Event.objects.count()
+        upcoming_events_count = Event.objects.filter(start_time__gte=now).count()
+        
         context.update({
-            'user_activity_data': json.dumps(user_activity_data)
+            'total_users': total_users_count,
+            'total_clubs': total_clubs_count,
+            'total_events': total_events_count,
+            'upcoming_events_count': upcoming_events_count,
         })
         return render(request, 'dashboard/admin_dashboard.html', context)
     elif user.is_founder():
@@ -194,7 +205,15 @@ def search(request):
 
 @login_required
 def notifications(request):
-    return render(request, 'dashboard/notifications.html')
+    from clubs.models import Notification
+    user_notifications = Notification.objects.filter(user=request.user)[:20]
+    unread_count = user_notifications.filter(is_read=False).count()
+    
+    context = {
+        'notifications': user_notifications,
+        'unread_count': unread_count,
+    }
+    return render(request, 'dashboard/notifications.html', context)
 
 @login_required
 def my_clubs(request):
@@ -313,9 +332,23 @@ def create_announcement(request):
             announcement = Announcement.objects.create(
                 title=title,
                 content=content,
-                club=None  # Or assign to a specific club if needed
+                author=request.user,
+                club=None
             )
-            messages.success(request, 'Announcement created successfully.')
+            
+            from clubs.models import Notification
+            from clubs.utils import create_notification
+            
+            all_users = User.objects.all()
+            create_notification(
+                all_users,
+                'announcement',
+                f'New Announcement: {title}',
+                content,
+                '/dashboard/'
+            )
+            
+            messages.success(request, 'Announcement created and notifications sent successfully.')
             return redirect('dashboard')
 
     return render(request, 'dashboard/create_announcement.html')
@@ -441,3 +474,137 @@ def send_message(request):
         return JsonResponse({'status': 'Message sent'})
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@login_required
+def mark_notification_read(request, notification_id):
+    from clubs.models import Notification
+    notification = get_object_or_404(Notification, id=notification_id, user=request.user)
+    notification.is_read = True
+    notification.save()
+    return JsonResponse({'status': 'success'})
+
+
+@login_required
+def get_unread_notifications_count(request):
+    from clubs.models import Notification
+    unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({'unread_count': unread_count})
+
+
+@login_required
+def admin_analytics_data(request):
+    if not request.user.is_admin():
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    from datetime import datetime, timedelta
+    from django.db.models import Count
+    from django.db.models.functions import TruncDate
+    
+    now = timezone.now()
+    seven_days_ago = now - timedelta(days=7)
+    
+    daily_signins = User.objects.filter(
+        last_seen__gte=seven_days_ago
+    ).annotate(
+        date=TruncDate('last_seen')
+    ).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+    
+    daily_signups = User.objects.filter(
+        date_joined__gte=seven_days_ago
+    ).annotate(
+        date=TruncDate('date_joined')
+    ).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+    
+    total_users = User.objects.count()
+    total_clubs = Club.objects.count()
+    total_events = Event.objects.count()
+    upcoming_events = Event.objects.filter(start_time__gte=now).count()
+    
+    signin_labels = []
+    signin_data = []
+    signup_data_dict = {str(item['date']): item['count'] for item in daily_signups}
+    
+    for i in range(7):
+        date = (seven_days_ago + timedelta(days=i)).date()
+        signin_labels.append(date.strftime('%b %d'))
+        signin_data.append(0)
+    
+    for item in daily_signins:
+        date_str = str(item['date'])
+        if date_str in [str((seven_days_ago + timedelta(days=i)).date()) for i in range(7)]:
+            idx = signin_labels.index(item['date'].strftime('%b %d'))
+            signin_data[idx] = item['count']
+    
+    signup_data = []
+    for label in signin_labels:
+        found = False
+        for item in daily_signups:
+            if item['date'].strftime('%b %d') == label:
+                signup_data.append(item['count'])
+                found = True
+                break
+        if not found:
+            signup_data.append(0)
+    
+    return JsonResponse({
+        'signin_labels': signin_labels,
+        'signin_data': signin_data,
+        'signup_data': signup_data,
+        'total_users': total_users,
+        'total_clubs': total_clubs,
+        'total_events': total_events,
+        'upcoming_events': upcoming_events,
+    })
+
+
+@login_required
+def activity_feed(request):
+    from clubs.models import ClubPost
+    from datetime import timedelta
+    
+    now = timezone.now()
+    recent_announcements = Announcement.objects.all().order_by('-created_at')[:10]
+    upcoming_events = Event.objects.filter(start_time__gte=now).order_by('start_time')[:10]
+    recent_posts = ClubPost.objects.all().order_by('-created_at')[:10]
+    
+    activity_items = []
+    
+    for announcement in recent_announcements:
+        activity_items.append({
+            'type': 'announcement',
+            'title': announcement.title,
+            'content': announcement.content,
+            'club': announcement.club.name if announcement.club else 'General',
+            'created_at': announcement.created_at,
+            'link': f'/clubs/{announcement.club.id}/' if announcement.club else '#',
+        })
+    
+    for event in upcoming_events:
+        activity_items.append({
+            'type': 'event',
+            'title': event.title,
+            'content': event.description,
+            'club': event.club.name,
+            'created_at': event.start_time,
+            'link': f'/clubs/{event.club.id}/',
+        })
+    
+    for post in recent_posts:
+        activity_items.append({
+            'type': 'post',
+            'title': post.title,
+            'content': post.content,
+            'club': post.club.name,
+            'created_at': post.created_at,
+            'link': f'/clubs/{post.club.id}/',
+        })
+    
+    activity_items.sort(key=lambda x: x['created_at'], reverse=True)
+    activity_items = activity_items[:20]
+    
+    return render(request, 'dashboard/activity_feed.html', {'activity_items': activity_items})

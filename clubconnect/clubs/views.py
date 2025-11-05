@@ -313,8 +313,19 @@ def create_club_announcement(request, club_id):
         if form.is_valid():
             announcement = form.save(commit=False)
             announcement.club = club
+            announcement.author = request.user
             announcement.save()
-            messages.success(request, "Announcement created successfully.")
+            
+            from .utils import notify_club_members
+            notify_club_members(
+                club,
+                'announcement',
+                f'New Announcement in {club.name}',
+                announcement.title,
+                f'/clubs/{club.id}/'
+            )
+            
+            messages.success(request, "Announcement created and members notified successfully.")
             return redirect('club_detail', club_id=club.id)
     else:
         form = AnnouncementForm()
@@ -332,3 +343,273 @@ def delete_club_announcement(request, announcement_id):
     announcement.delete()
     messages.success(request, "Announcement deleted successfully.")
     return redirect('club_detail', club_id=club.id)
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .models import Event, EventAttendance, Survey, SurveyQuestion, SurveyResponse, ClubPost, MemberPoints, Club, Membership
+from .utils import generate_qr_code_for_event, notify_club_members
+from accounts.models import User
+
+
+@login_required
+def generate_event_qr(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    club = event.club
+    
+    if not club.founders.filter(id=request.user.id).exists() and not request.user.is_admin():
+        messages.error(request, "Only club founders can generate QR codes.")
+        return redirect('club_detail', club_id=club.id)
+    
+    if not event.qr_code:
+        generate_qr_code_for_event(event, request)
+        messages.success(request, "QR code generated successfully!")
+    
+    return redirect('club_detail', club_id=club.id)
+
+
+@login_required
+def event_checkin(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    
+    attendance, created = EventAttendance.objects.get_or_create(
+        event=event,
+        user=request.user,
+        defaults={'checked_in_via_qr': True}
+    )
+    
+    if created:
+        member_points, _ = MemberPoints.objects.get_or_create(
+            user=request.user,
+            club=event.club
+        )
+        member_points.participation_count += 1
+        member_points.points += 10
+        member_points.save()
+        
+        messages.success(request, f"Successfully checked in to {event.title}! You earned 10 points.")
+    else:
+        messages.info(request, "You have already checked in to this event.")
+    
+    return redirect('club_detail', club_id=event.club.id)
+
+
+@login_required
+def create_survey(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    if not club.founders.filter(id=request.user.id).exists():
+        messages.error(request, "Only club founders can create surveys.")
+        return redirect('club_detail', club_id=club.id)
+    
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        
+        if title:
+            survey = Survey.objects.create(
+                club=club,
+                creator=request.user,
+                title=title,
+                description=description
+            )
+            
+            question_count = int(request.POST.get('question_count', 0))
+            for i in range(question_count):
+                question_text = request.POST.get(f'question_{i}')
+                question_type = request.POST.get(f'type_{i}', 'text')
+                choices = request.POST.get(f'choices_{i}', '')
+                
+                if question_text:
+                    SurveyQuestion.objects.create(
+                        survey=survey,
+                        question_text=question_text,
+                        question_type=question_type,
+                        choices=choices,
+                        order=i
+                    )
+            
+            notify_club_members(
+                club,
+                'general',
+                'New Survey Available',
+                f'A new survey "{title}" has been created in {club.name}',
+                f'/clubs/{club.id}/surveys/{survey.id}/'
+            )
+            
+            messages.success(request, "Survey created successfully!")
+            return redirect('club_detail', club_id=club.id)
+    
+    return render(request, 'clubs/create_survey.html', {'club': club})
+
+
+@login_required
+def view_survey(request, survey_id):
+    survey = get_object_or_404(Survey, id=survey_id)
+    questions = survey.questions.all()
+    
+    user_responses = SurveyResponse.objects.filter(survey=survey, user=request.user)
+    has_responded = user_responses.exists()
+    
+    if request.method == 'POST' and not has_responded:
+        for question in questions:
+            answer = request.POST.get(f'question_{question.id}')
+            if answer:
+                SurveyResponse.objects.create(
+                    survey=survey,
+                    user=request.user,
+                    question=question,
+                    answer=answer
+                )
+        
+        member_points, _ = MemberPoints.objects.get_or_create(
+            user=request.user,
+            club=survey.club
+        )
+        member_points.contribution_count += 1
+        member_points.points += 5
+        member_points.save()
+        
+        messages.success(request, "Thank you for completing the survey! You earned 5 points.")
+        return redirect('club_detail', club_id=survey.club.id)
+    
+    context = {
+        'survey': survey,
+        'questions': questions,
+        'has_responded': has_responded,
+    }
+    return render(request, 'clubs/view_survey.html', context)
+
+
+@login_required
+def survey_results(request, survey_id):
+    survey = get_object_or_404(Survey, id=survey_id)
+    
+    if not survey.club.founders.filter(id=request.user.id).exists() and not request.user.is_admin():
+        messages.error(request, "Only club founders can view survey results.")
+        return redirect('club_detail', club_id=survey.club.id)
+    
+    questions = survey.questions.all()
+    results = []
+    
+    for question in questions:
+        question_responses = SurveyResponse.objects.filter(question=question)
+        
+        if question.question_type == 'choice':
+            choices = [c.strip() for c in question.choices.split(',')]
+            choice_counts = {choice: 0 for choice in choices}
+            
+            for response in question_responses:
+                if response.answer in choice_counts:
+                    choice_counts[response.answer] += 1
+            
+            results.append({
+                'question': question.question_text,
+                'type': 'choice',
+                'data': choice_counts,
+            })
+        elif question.question_type == 'rating':
+            ratings = [int(r.answer) for r in question_responses if r.answer.isdigit()]
+            avg_rating = sum(ratings) / len(ratings) if ratings else 0
+            rating_counts = {i: ratings.count(i) for i in range(1, 6)}
+            
+            results.append({
+                'question': question.question_text,
+                'type': 'rating',
+                'average': round(avg_rating, 2),
+                'data': rating_counts,
+            })
+        else:
+            text_responses = [r.answer for r in question_responses]
+            results.append({
+                'question': question.question_text,
+                'type': 'text',
+                'responses': text_responses,
+            })
+    
+    context = {
+        'survey': survey,
+        'results': results,
+        'total_responses': SurveyResponse.objects.filter(survey=survey).values('user').distinct().count(),
+    }
+    return render(request, 'clubs/survey_results.html', context)
+
+
+@login_required
+def create_club_post(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    is_member = Membership.objects.filter(user=request.user, club=club, status='approved').exists()
+    is_founder = club.founders.filter(id=request.user.id).exists()
+    
+    if not is_member and not is_founder:
+        messages.error(request, "You must be a member to post in this club.")
+        return redirect('club_detail', club_id=club.id)
+    
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        content = request.POST.get('content')
+        post_type = request.POST.get('post_type', 'general')
+        image = request.FILES.get('image')
+        
+        if title and content:
+            post = ClubPost.objects.create(
+                club=club,
+                author=request.user,
+                post_type=post_type,
+                title=title,
+                content=content,
+                image=image
+            )
+            
+            notify_club_members(
+                club,
+                'general',
+                f'New {post_type} from {request.user.username}',
+                title,
+                f'/clubs/{club.id}/'
+            )
+            
+            member_points, _ = MemberPoints.objects.get_or_create(
+                user=request.user,
+                club=club
+            )
+            member_points.contribution_count += 1
+            member_points.points += 3
+            member_points.save()
+            
+            messages.success(request, "Post created successfully!")
+            return redirect('club_detail', club_id=club.id)
+    
+    return render(request, 'clubs/create_post.html', {'club': club})
+
+
+@login_required
+def like_post(request, post_id):
+    post = get_object_or_404(ClubPost, id=post_id)
+    
+    if request.user in post.likes.all():
+        post.likes.remove(request.user)
+        liked = False
+    else:
+        post.likes.add(request.user)
+        liked = True
+    
+    return JsonResponse({
+        'liked': liked,
+        'total_likes': post.total_likes()
+    })
+
+
+@login_required
+def club_leaderboard(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    leaderboard = MemberPoints.objects.filter(club=club).select_related('user')[:20]
+    
+    context = {
+        'club': club,
+        'leaderboard': leaderboard,
+    }
+    return render(request, 'clubs/leaderboard.html', context)
