@@ -37,19 +37,71 @@
                         <p>{{ club.faculty_advisor|default:"Not specified" }}</p>
                     </div>
                     
-                    {% if request.user in club.founders.all or user.is_staff %}
-                        <a href="{% url 'edit_club' club.id %}" class="btn btn-secondary mb-2">Edit Club</a>
-                        <a href="{% url 'create_club_announcement' club.id %}" class="btn btn-info mb-2">Create Announcement</a>
-                    {% endif %}
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <a href="{% url 'toggle_favorite_club' club.id %}" class="btn btn-outline-warning" onclick="return confirm('Toggle favorite?');">
+                            {% if request.user in club.favorited_by.all %}
+                                <i class="fas fa-star"></i> Favorited
+                            {% else %}
+                                <i class="far fa-star"></i> Add to Favorites
+                            {% endif %}
+                        </a>
+                        
+                        <a href="{% url 'club_leaderboard' club.id %}" class="btn btn-outline-success">
+                            <i class="fas fa-trophy"></i> Leaderboard
+                        </a>
+                        
+                        {% if request.user in club.founders.all or user.is_staff or request.user == club.president or request.user == club.vice_president %}
+                            <a href="{% url 'edit_club' club.id %}" class="btn btn-secondary">
+                                <i class="fas fa-edit"></i> Edit Club
+                            </a>
+                            <a href="{% url 'create_club_announcement' club.id %}" class="btn btn-info">
+                                <i class="fas fa-bullhorn"></i> Create Announcement
+                            </a>
+                            <a href="{% url 'create_event' club.id %}" class="btn btn-success">
+                                <i class="fas fa-calendar-plus"></i> Create Event
+                            </a>
+                            <a href="{% url 'create_survey' club.id %}" class="btn btn-primary">
+                                <i class="fas fa-poll"></i> Create Survey
+                            </a>
+                            <a href="{% url 'create_club_meeting' club.id %}" class="btn btn-primary">
+                                <i class="fas fa-video"></i> Create Meeting
+                            </a>
+                            <a href="{% url 'view_club_feedbacks' club.id %}" class="btn btn-warning">
+                                <i class="fas fa-comments"></i> View Feedbacks
+                            </a>
+                            <a href="{% url 'view_mentor_sessions' club.id %}" class="btn btn-info">
+                                <i class="fas fa-chalkboard-teacher"></i> Mentor Sessions
+                            </a>
+                        {% endif %}
+                    </div>
+                    
                     {% if not is_member and not user.is_staff %}
                         <form method="post" action="{% url 'register_for_club' club.id %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-primary">Join Club</button>
+                            <button type="submit" class="btn btn-lg btn-primary">
+                                <i class="fas fa-user-plus"></i> Join Club
+                            </button>
                         </form>
                     {% endif %}
+                    
                     {% if is_member %}
-                        <a href="{% url 'leave_club' club.id %}" class="btn btn-danger mb-2">Leave Club</a>
-                        <a href="{% url 'club_chat' club.id %}" class="btn btn-outline-primary mt-2">Open Club Chat</a>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{% url 'club_chat' club.id %}" class="btn btn-outline-primary">
+                                <i class="fas fa-comments"></i> Club Chat
+                            </a>
+                            <a href="{% url 'create_club_post' club.id %}" class="btn btn-primary">
+                                <i class="fas fa-plus-square"></i> Create Post
+                            </a>
+                            <a href="{% url 'submit_club_feedback' club.id %}" class="btn btn-outline-info">
+                                <i class="fas fa-comment-dots"></i> Submit Feedback
+                            </a>
+                            <a href="{% url 'book_mentor_session' club.id %}" class="btn btn-outline-success">
+                                <i class="fas fa-user-tie"></i> Book Mentor Session
+                            </a>
+                            <a href="{% url 'leave_club' club.id %}" class="btn btn-outline-danger">
+                                <i class="fas fa-sign-out-alt"></i> Leave Club
+                            </a>
+                        </div>
                     {% endif %}
                 </div>
             </div>
