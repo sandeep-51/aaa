@@ -11,6 +11,41 @@ ClubConnect is a comprehensive Django-based platform for managing college clubs,
 
 ## Recent Changes (November 5, 2025)
 
+### Bug Fixes and UI Improvements (Latest Session)
+
+#### Fixed Notification System
+- Updated notifications template to display **real notifications** from database instead of hardcoded mock data
+- Created `dashboard/context_processors.py` to make unread notification count globally available
+- Updated base template to show **actual unread notification count** instead of hardcoded "3"
+- Notifications now properly highlight unread items with blue background
+- Added auto-redirect to linked content when clicking notifications
+
+#### Enhanced Club Detail Page
+- Added **Recent Posts** section showing club member posts with images and likes
+- Added **Active Surveys** section for ongoing club surveys
+- Added **QR Code display** for events on club detail page
+- Posts show author, post type, timestamp, and like count
+- Survey section includes direct links for members and results view for founders
+
+#### All Features Now Visible and Functional
+All features mentioned in the testing guide are now properly implemented:
+- ⭐ Add to Favorites
+- 🏆 Leaderboard
+- ✏️ Edit Club (founders)
+- 📢 Create Announcement (founders)
+- 📅 Create Event with QR Code (founders)
+- 📊 Create Survey (founders)
+- 🎥 Create Meeting (founders)
+- 💬 View Feedbacks (founders)
+- 👨‍🏫 Mentor Sessions (founders)
+- 💬 Club Chat (members)
+- ➕ Create Post (members)
+- 💡 Submit Feedback (members)
+- 👨‍🏫 Book Mentor Session (members)
+- 🚪 Leave Club (members)
+
+## Previous Changes (November 5, 2025)
+
 ### Initial Setup
 - Configured Django for Replit environment (ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS)
 - Set up database migrations and created initial schema

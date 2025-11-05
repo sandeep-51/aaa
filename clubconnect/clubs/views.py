@@ -83,12 +83,18 @@ def club_detail(request, club_id):
     if request.user.is_authenticated:
         is_member = Membership.objects.filter(user=request.user, club=club, status='approved').exists()
     
+    from .models import ClubPost, Survey
+    recent_posts = ClubPost.objects.filter(club=club).order_by('-created_at')[:5]
+    active_surveys = Survey.objects.filter(club=club, is_active=True)
+    
     context = {
         'club': club,
         'events': events,
         'founders': founders,
         'announcements': announcements,
         'is_member': is_member,
+        'recent_posts': recent_posts,
+        'active_surveys': active_surveys,
     }
     return render(request, 'clubs/club_detail.html', context)
 
