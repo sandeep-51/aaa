@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Founder Dashboard</h1>
+    
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">My Clubs</h5>
+                    <p class="card-text display-4">{{ user_clubs.count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-primary text-white mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Upcoming Events</h5>
+                    <p class="card-text display-4">{{ events.count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-primary text-white mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">New Messages</h5>
+                    <p class="card-text display-4">{{ unread_messages }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upcoming Events -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>Upcoming Events</h3>
+        </div>
+        <div class="card-body">
+            {% if events %}
+                {% for event in events %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ event.title }}</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">{{ event.start_time|date:"F j, Y" }}</h6>
+                        <p class="card-text">{{ event.description }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No upcoming events.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- My Clubs -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>My Clubs</h3>
+        </div>
+        <div class="card-body">
+            {% if user_clubs %}
+                <div class="row">
+                {% for club in user_clubs %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ club.name }}</h5>
+                                <p class="card-text">{{ club.short_description }}</p>
+                                <div class="d-flex flex-column">
+                                    <a href="{% url 'club_detail' club.id %}" class="btn btn-primary mb-2">View Club</a>
+                                    <a href="{% url 'create_event' club.id %}" class="btn btn-outline-primary mb-2">Post Event</a>
+                                    <a href="{% url 'club_chat' club.id %}" class="btn btn-outline-primary">Club Chat</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p>You don't have any clubs yet. Contact an administrator to be assigned as a club founder.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Pending Membership Requests -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>Pending Membership Requests</h3>
+        </div>
+        <div class="card-body">
+            {% if membership_requests %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Club</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in membership_requests %}
+                            <tr>
+                                <td>{{ request.user.username }}</td>
+                                <td>{{ request.club.name }}</td>
+                                <td>{{ request.joined_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <a href="{% url 'approve_membership' request.id %}" class="btn btn-sm btn-success me-2">Approve</a>
+                                    <a href="{% url 'reject_membership' request.id %}" class="btn btn-sm btn-danger">Reject</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No pending membership requests.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recent Announcements -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h3>Recent Announcements</h3>
+        </div>
+        <div class="card-body">
+            {% if announcements %}
+                {% for announcement in announcements %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ announcement.title }}</h5>
+                        <h6 class="card-subtitle mb-2 text-muted">{{ announcement.created_at|date:"F j, Y" }}</h6>
+                        <p class="card-text">{{ announcement.content }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No recent announcements.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Recent Messages -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3>Recent Messages</h3>
+        </div>
+        <div class="card-body">
+            {% if recent_messages %}
+                <div class="list-group">
+                {% for message in recent_messages %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">From: {{ message.sender.username }}</h5>
+                            <small>{{ message.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1">{{ message.content }}</p>
+                        {% if message.club %}
+                            <small>Club: {{ message.club.name }}</small>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p>No recent messages.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
