@@ -75,7 +75,7 @@ def assign_founder(request, club_id):
 # Club detail view
 def club_detail(request, club_id):
     club = get_object_or_404(Club, id=club_id)
-    events = Event.objects.filter(club=club).order_by('start_time')
+    events = Event.objects.filter(club=club).order_by('start_time').prefetch_related('attendances__user')
     founders = club.founders.all()
     announcements = Announcement.objects.filter(club=club).order_by('-created_at')[:5]
     is_member = False
@@ -87,6 +87,14 @@ def club_detail(request, club_id):
     recent_posts = ClubPost.objects.filter(club=club).order_by('-created_at')[:5]
     active_surveys = Survey.objects.filter(club=club, is_active=True)
     
+    user_registered_events = []
+    if request.user.is_authenticated:
+        from .models import EventAttendance
+        user_registered_events = EventAttendance.objects.filter(
+            event__club=club, 
+            user=request.user
+        ).values_list('event_id', flat=True)
+    
     context = {
         'club': club,
         'events': events,
@@ -95,6 +103,7 @@ def club_detail(request, club_id):
         'is_member': is_member,
         'recent_posts': recent_posts,
         'active_surveys': active_surveys,
+        'user_registered_events': user_registered_events,
     }
     return render(request, 'clubs/club_detail.html', context)
 
@@ -422,6 +431,33 @@ def event_checkin(request, event_id):
     
     return redirect('club_detail', club_id=event.club.id)
 
+@login_required
+def event_register(request, event_id):
+    event = get_object_or_404(Event, id=event_id)
+    
+    attendance, created = EventAttendance.objects.get_or_create(
+        event=event,
+        user=request.user,
+        defaults={'checked_in_via_qr': False}
+    )
+    
+    if created:
+        from .models import Notification
+        from .utils import create_notification
+        representatives = event.club.get_representatives()
+        create_notification(
+            representatives,
+            'event',
+            f'New Registration for {event.title}',
+            f'{request.user.username} registered for the event',
+            f'/clubs/{event.club.id}/'
+        )
+        messages.success(request, f"Successfully registered for {event.title}! Don't forget to check in at the event to earn points.")
+    else:
+        messages.info(request, "You are already registered for this event.")
+    
+    return redirect('club_detail', club_id=event.club.id)
+
 
 @login_required
 def create_survey(request, club_id):
@@ -568,11 +604,12 @@ def survey_results(request, survey_id):
 def create_club_post(request, club_id):
     club = get_object_or_404(Club, id=club_id)
     
-    is_member = Membership.objects.filter(user=request.user, club=club, status='approved').exists()
     is_founder = club.founders.filter(id=request.user.id).exists()
+    is_president = request.user == club.president
+    is_vp = request.user == club.vice_president
     
-    if not is_member and not is_founder:
-        messages.error(request, "You must be a member to post in this club.")
+    if not (is_founder or is_president or is_vp):
+        messages.error(request, "Only club representatives can create posts.")
         return redirect('club_detail', club_id=club.id)
     
     if request.method == 'POST':
@@ -759,13 +796,17 @@ def book_mentor_session(request, club_id):
         if mentor_topic and description and preferred_date:
             from .models import MentorSession
             from datetime import datetime
+            from django.utils import timezone as tz
+            
+            naive_datetime = datetime.fromisoformat(preferred_date)
+            aware_datetime = tz.make_aware(naive_datetime)
             
             session = MentorSession.objects.create(
                 club=club,
                 student=request.user,
                 mentor_topic=mentor_topic,
                 description=description,
-                preferred_date=datetime.fromisoformat(preferred_date)
+                preferred_date=aware_datetime
             )
             
             from .models import Notification

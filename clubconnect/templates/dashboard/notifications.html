@@ -45,7 +45,7 @@
 
 <script>
 function markAsRead(notificationId) {
-    fetch(`/dashboard/ajax/mark_notification_read/${notificationId}/`, {
+    fetch(`/notifications/mark-read/${notificationId}/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': '{{ csrf_token }}',

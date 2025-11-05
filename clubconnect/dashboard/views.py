@@ -95,12 +95,17 @@ def dashboard(request):
         })
         return render(request, 'dashboard/admin_dashboard.html', context)
     elif user.is_founder():
+        from clubs.models import MentorSession, ClubFeedback
         founder_clubs = Club.objects.filter(founders=user)
         membership_requests = Membership.objects.filter(club__in=founder_clubs, status='pending')
+        pending_mentor_sessions = MentorSession.objects.filter(club__in=founder_clubs, status='pending')
+        pending_feedbacks = ClubFeedback.objects.filter(club__in=founder_clubs, status='pending')
         
         context.update({
             'membership_requests': membership_requests,
             'user_clubs': founder_clubs,  # Override with founder's clubs
+            'pending_mentor_sessions': pending_mentor_sessions,
+            'pending_feedbacks': pending_feedbacks,
         })
         return render(request, 'dashboard/founder_dashboard.html', context)
     else:  # Default to student dashboard
@@ -206,8 +211,9 @@ def search(request):
 @login_required
 def notifications(request):
     from clubs.models import Notification
-    user_notifications = Notification.objects.filter(user=request.user)[:20]
-    unread_count = user_notifications.filter(is_read=False).count()
+    all_notifications = Notification.objects.filter(user=request.user)
+    unread_count = all_notifications.filter(is_read=False).count()
+    user_notifications = all_notifications.order_by('-created_at')[:20]
     
     context = {
         'notifications': user_notifications,

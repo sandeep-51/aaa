@@ -122,6 +122,84 @@
         </div>
     </div>
     
+    <!-- Pending Mentor Sessions -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3>Pending Mentor Sessions</h3>
+        </div>
+        <div class="card-body">
+            {% if pending_mentor_sessions %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Club</th>
+                                <th>Topic</th>
+                                <th>Preferred Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in pending_mentor_sessions %}
+                            <tr>
+                                <td>{{ session.student.username }}</td>
+                                <td>{{ session.club.name }}</td>
+                                <td>{{ session.topic }}</td>
+                                <td>{{ session.preferred_date|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'view_mentor_sessions' session.club.id %}" class="btn btn-sm btn-primary">Manage</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No pending mentor session requests.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Pending Feedbacks -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-white">
+            <h3>Pending Feedbacks</h3>
+        </div>
+        <div class="card-body">
+            {% if pending_feedbacks %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Club</th>
+                                <th>Type</th>
+                                <th>Feedback</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for feedback in pending_feedbacks %}
+                            <tr>
+                                <td>{{ feedback.student.username }}</td>
+                                <td>{{ feedback.club.name }}</td>
+                                <td><span class="badge bg-info">{{ feedback.feedback_type|title }}</span></td>
+                                <td>{{ feedback.feedback|truncatechars:50 }}</td>
+                                <td>
+                                    <a href="{% url 'view_club_feedbacks' feedback.club.id %}" class="btn btn-sm btn-primary">View</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No pending feedbacks.</p>
+            {% endif %}
+        </div>
+    </div>
+    
     <!-- Recent Announcements -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">

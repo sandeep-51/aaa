@@ -11,37 +11,82 @@ ClubConnect is a comprehensive Django-based platform for managing college clubs,
 
 ## Recent Changes (November 5, 2025)
 
-### Bug Fixes and UI Improvements (Latest Session)
+### Latest Updates - Video/Audio Calls & Bug Fixes
 
-#### Fixed Notification System
-- Updated notifications template to display **real notifications** from database instead of hardcoded mock data
-- Created `dashboard/context_processors.py` to make unread notification count globally available
-- Updated base template to show **actual unread notification count** instead of hardcoded "3"
-- Notifications now properly highlight unread items with blue background
-- Added auto-redirect to linked content when clicking notifications
+#### 🎥 Video and Audio Call Feature (NEW!)
+- Implemented **WebRTC-based video/audio calling** for club meetings
+- Created `static/js/meeting_room.js` with full meeting room functionality
+- Features include:
+  - **Live video streaming** with camera access
+  - **Audio communication** with microphone access
+  - **Toggle video/audio** on/off during meetings
+  - **Screen sharing** capability for presentations
+  - **Participant list** showing who's in the meeting
+  - **Meeting controls** with intuitive UI (mute, video, screen share, end call)
+  - **Auto-permission requests** for camera and microphone
+- Redesigned meeting room interface with dark theme and professional layout
+- No external API keys required - uses native browser WebRTC
 
-#### Enhanced Club Detail Page
-- Added **Recent Posts** section showing club member posts with images and likes
-- Added **Active Surveys** section for ongoing club surveys
-- Added **QR Code display** for events on club detail page
-- Posts show author, post type, timestamp, and like count
-- Survey section includes direct links for members and results view for founders
+#### 🐛 Critical Bug Fixes
+1. **Fixed Notification Panel Crash**
+   - Resolved "Cannot filter a query once a slice has been taken" error
+   - Notifications panel now opens without errors
+   - Fixed query ordering in `dashboard/views.py`
+
+2. **Fixed Club Posts Not Saving**
+   - Added missing "title" field to post creation form
+   - Posts now save correctly and display on club detail page
+   - Posts show author, type, content, images, and likes
+
+3. **Restricted Post Creation to Representatives**
+   - Only founders, president, and vice-president can create posts
+   - Regular members cannot create posts (security improvement)
+   - Updated permissions checks in views and templates
+
+4. **Fixed Mentor Session DateTime Warning**
+   - Converted naive datetime to timezone-aware datetime
+   - Eliminates runtime warnings about timezone support
+
+5. **Event Registration System**
+   - Added **event registration** feature for members
+   - Members can register for events before attending
+   - Shows registration status (Registered/Not Registered)
+   - Separate "Register" and "Check In" buttons
+   - Notifications sent to founders when members register
+
+#### 📊 Enhanced Founder Dashboard
+- Added **Pending Mentor Sessions** section
+  - Shows all pending session requests from students
+  - Quick link to manage sessions
+  - Displays student name, topic, and preferred date
+
+- Added **Pending Feedbacks** section
+  - Shows all unreviewed feedback from members
+  - Quick link to view and update feedback status
+  - Displays feedback type and preview
+
+#### 🎨 UI Improvements
+- Fixed notification badge to show actual count (was hardcoded to "3")
+- Notifications now highlight unread items with blue background
+- Added QR code display on event cards
+- Enhanced club detail page with posts and surveys sections
+- Fixed notification mark-as-read URL path
 
 #### All Features Now Visible and Functional
-All features mentioned in the testing guide are now properly implemented:
 - ⭐ Add to Favorites
 - 🏆 Leaderboard
 - ✏️ Edit Club (founders)
 - 📢 Create Announcement (founders)
 - 📅 Create Event with QR Code (founders)
 - 📊 Create Survey (founders)
-- 🎥 Create Meeting (founders)
+- 🎥 Create Meeting with **Video/Audio Calls** (founders) ⭐NEW
 - 💬 View Feedbacks (founders)
 - 👨‍🏫 Mentor Sessions (founders)
 - 💬 Club Chat (members)
-- ➕ Create Post (members)
+- ➕ Create Post (founders/representatives only)
 - 💡 Submit Feedback (members)
 - 👨‍🏫 Book Mentor Session (members)
+- 📅 **Register for Events** (members) ⭐NEW
 - 🚪 Leave Club (members)
 
 ## Previous Changes (November 5, 2025)
