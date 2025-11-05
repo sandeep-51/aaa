@@ -11,7 +11,38 @@ ClubConnect is a comprehensive Django-based platform for managing college clubs,
 
 ## Recent Changes (November 5, 2025)
 
-### Latest Updates - Video/Audio Calls & Bug Fixes
+### Latest Updates - Admin Dashboard Analytics & Club Posting Enhancement
+
+#### 📊 Fixed Admin Dashboard Analytics (NEW!)
+- **Fixed analytics charts** to display real data from database
+  - User sign-ins chart (last 7 days) - line chart
+  - User sign-ups chart (last 7 days) - bar chart
+  - Total users, clubs, events, and upcoming events stats cards
+- **Added auto-refresh** functionality
+  - Dashboard automatically fetches fresh data every 10 minutes (600000ms)
+  - Charts and stats update without page reload
+  - Uses AJAX to call `/dashboard/ajax/admin_analytics/` endpoint
+- **Enhanced UI** with color-coded stat cards
+  - Green for Total Users
+  - Blue for Total Clubs
+  - Red for Total Events
+  - Yellow for Upcoming Events
+
+#### 📝 Enhanced Club Posting for Founders
+- Club founders can now **post to their club profile** like managing a Facebook page
+- Founders can create posts **regardless of membership status**
+- "Create Post" button now visible to founders, presidents, and vice presidents outside membership check
+- Founders can post:
+  - **Events** - event announcements with images
+  - **Pictures** - photo posts with captions
+  - **General feed** - updates, information, memes
+- Posts appear on club profile with:
+  - Author information
+  - Post type badge
+  - Like functionality
+  - Images if uploaded
+
+### Previous Updates - Video/Audio Calls & Bug Fixes
 
 #### 🎥 Video and Audio Call Feature (NEW!)
 - Implemented **WebRTC-based video/audio calling** for club meetings
