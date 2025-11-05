@@ -515,7 +515,7 @@ def admin_analytics_data(request):
     ).annotate(
         date=TruncDate('last_seen')
     ).values('date').annotate(
-        count=Count('id')
+        count=Count('id', distinct=True)
     ).order_by('date')
     
     daily_signups = User.objects.filter(
@@ -523,7 +523,7 @@ def admin_analytics_data(request):
     ).annotate(
         date=TruncDate('date_joined')
     ).values('date').annotate(
-        count=Count('id')
+        count=Count('id', distinct=True)
     ).order_by('date')
     
     total_users = User.objects.count()
