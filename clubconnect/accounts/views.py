@@ -27,11 +27,6 @@ def create_user_by_admin(request):
     return render(request, 'accounts/create_user_by_admin.html', {'form': form})
 
 def register_view(request):
-    # Redirect to login if not authenticated or not admin
-    if not request.user.is_authenticated or not request.user.is_admin():
-        messages.error(request, 'Only administrators can create new accounts.')
-        return redirect('login')
-    
     if request.method == 'POST':
         username = request.POST.get('username')
         email = request.POST.get('email')
@@ -60,7 +55,9 @@ def register_view(request):
         user.bio = bio
         user.save()
 
-        messages.success(request, f'User {username} created successfully!')
+        # Log the user in automatically
+        login(request, user)
+        messages.success(request, f'Welcome {username}! Your account has been created successfully.')
         return redirect('dashboard')
 
     return render(request, 'accounts/register.html')
