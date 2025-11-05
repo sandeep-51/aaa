@@ -29,4 +29,17 @@ urlpatterns = [
     path('post/<int:post_id>/like/', views.like_post, name='like_post'),
     
     path('<int:club_id>/leaderboard/', views.club_leaderboard, name='club_leaderboard'),
+    
+    path('<int:club_id>/toggle-favorite/', views.toggle_favorite_club, name='toggle_favorite_club'),
+    
+    path('<int:club_id>/submit-feedback/', views.submit_club_feedback, name='submit_club_feedback'),
+    path('<int:club_id>/feedback/', views.view_club_feedbacks, name='view_club_feedbacks'),
+    path('feedback/<int:feedback_id>/update/', views.update_feedback_status, name='update_feedback_status'),
+    
+    path('<int:club_id>/book-mentor/', views.book_mentor_session, name='book_mentor_session'),
+    path('<int:club_id>/mentor-sessions/', views.view_mentor_sessions, name='view_mentor_sessions'),
+    path('mentor-session/<int:session_id>/update/', views.update_mentor_session, name='update_mentor_session'),
+    
+    path('<int:club_id>/create-meeting/', views.create_club_meeting, name='create_club_meeting'),
+    path('<int:club_id>/meeting/<str:meeting_link>/', views.join_club_meeting, name='join_club_meeting'),
 ]

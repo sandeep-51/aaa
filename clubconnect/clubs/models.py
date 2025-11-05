@@ -7,13 +7,24 @@ class Club(models.Model):
     long_description = models.TextField()
     domain_tags = models.CharField(max_length=200, help_text="Comma separated tags")
     founders = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='founded_clubs')
+    president = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='club_president')
+    vice_president = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='club_vice_president')
     faculty_advisor = models.CharField(max_length=100, blank=True)
     logo = models.ImageField(upload_to='club_logos/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    favorited_by = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='favorite_clubs', blank=True)
     
     def __str__(self):
         return self.name
+    
+    def get_representatives(self):
+        reps = list(self.founders.all())
+        if self.president:
+            reps.append(self.president)
+        if self.vice_president:
+            reps.append(self.vice_president)
+        return list(set(reps))
 
 class Event(models.Model):
     club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name='events')
@@ -188,3 +199,67 @@ class EventAttendance(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.event.title}"
+
+class ClubFeedback(models.Model):
+    FEEDBACK_TYPES = (
+        ('feedback', 'General Feedback'),
+        ('event_idea', 'Event Idea'),
+        ('suggestion', 'Suggestion'),
+    )
+    
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name='feedbacks')
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    feedback_type = models.CharField(max_length=20, choices=FEEDBACK_TYPES, default='feedback')
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=[('pending', 'Pending'), ('reviewed', 'Reviewed'), ('implemented', 'Implemented')], default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_feedbacks')
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.title}"
+
+class MentorSession(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('completed', 'Completed'),
+    )
+    
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name='mentor_sessions')
+    student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='mentor_requests')
+    mentor_topic = models.CharField(max_length=200)
+    description = models.TextField()
+    preferred_date = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    assigned_mentor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='mentoring_sessions')
+    created_at = models.DateTimeField(auto_now_add=True)
+    meeting_link = models.CharField(max_length=500, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.mentor_topic}"
+
+class ClubMeeting(models.Model):
+    club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name='meetings')
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    scheduled_time = models.DateTimeField()
+    duration_minutes = models.IntegerField(default=60)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    meeting_link = models.CharField(max_length=500, blank=True)
+    is_active = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    participants = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='club_meetings', blank=True)
+    
+    class Meta:
+        ordering = ['-scheduled_time']
+    
+    def __str__(self):
+        return f"{self.club.name} - {self.title}"

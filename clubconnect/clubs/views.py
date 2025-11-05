@@ -201,7 +201,28 @@ def create_event(request, club_id):
             event = form.save(commit=False)
             event.club = club
             event.save()
-            messages.success(request, f"Event '{event.title}' has been created successfully.")
+            
+            from .models import Notification
+            from .utils import create_notification
+            favorited_users = list(club.favorited_by.all())
+            if favorited_users:
+                create_notification(
+                    favorited_users,
+                    'event',
+                    f'New Event in {club.name}!',
+                    f'{event.title} - {event.description[:100]}...',
+                    f'/clubs/{club.id}/'
+                )
+            
+            notify_club_members(
+                club,
+                'event',
+                f'New Event: {event.title}',
+                event.description[:100],
+                f'/clubs/{club.id}/'
+            )
+            
+            messages.success(request, f"Event '{event.title}' has been created and members notified!")
             return redirect('club_detail', club_id=club_id)
     else:
         form = EventForm()
@@ -613,3 +634,262 @@ def club_leaderboard(request, club_id):
         'leaderboard': leaderboard,
     }
     return render(request, 'clubs/leaderboard.html', context)
+
+
+@login_required
+def toggle_favorite_club(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    if request.user in club.favorited_by.all():
+        club.favorited_by.remove(request.user)
+        favorited = False
+        messages.success(request, f"Removed {club.name} from your favorites.")
+    else:
+        club.favorited_by.add(request.user)
+        favorited = True
+        messages.success(request, f"Added {club.name} to your favorites!")
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'favorited': favorited})
+    return redirect('club_detail', club_id=club.id)
+
+
+@login_required
+def submit_club_feedback(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        feedback_type = request.POST.get('feedback_type', 'feedback')
+        
+        if title and description:
+            from .models import ClubFeedback
+            feedback = ClubFeedback.objects.create(
+                club=club,
+                student=request.user,
+                feedback_type=feedback_type,
+                title=title,
+                description=description
+            )
+            
+            from .models import Notification
+            from .utils import create_notification
+            representatives = club.get_representatives()
+            create_notification(
+                representatives,
+                'general',
+                f'New {feedback.get_feedback_type_display()} from {request.user.username}',
+                f'{title}: {description[:100]}...',
+                f'/clubs/{club.id}/feedback/'
+            )
+            
+            messages.success(request, "Your feedback has been submitted successfully!")
+            return redirect('club_detail', club_id=club.id)
+    
+    return render(request, 'clubs/submit_feedback.html', {'club': club})
+
+
+@login_required
+def view_club_feedbacks(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    if not club.founders.filter(id=request.user.id).exists() and request.user != club.president and request.user != club.vice_president:
+        messages.error(request, "Only club representatives can view feedbacks.")
+        return redirect('club_detail', club_id=club.id)
+    
+    from .models import ClubFeedback
+    feedbacks = ClubFeedback.objects.filter(club=club)
+    
+    return render(request, 'clubs/view_feedbacks.html', {'club': club, 'feedbacks': feedbacks})
+
+
+@login_required
+def update_feedback_status(request, feedback_id):
+    from .models import ClubFeedback
+    feedback = get_object_or_404(ClubFeedback, id=feedback_id)
+    club = feedback.club
+    
+    if not club.founders.filter(id=request.user.id).exists() and request.user != club.president and request.user != club.vice_president:
+        messages.error(request, "Only club representatives can update feedback status.")
+        return redirect('club_detail', club_id=club.id)
+    
+    if request.method == 'POST':
+        status = request.POST.get('status')
+        if status in ['pending', 'reviewed', 'implemented']:
+            feedback.status = status
+            feedback.reviewed_by = request.user
+            feedback.save()
+            
+            from .models import Notification
+            from .utils import create_notification
+            create_notification(
+                [feedback.student],
+                'general',
+                f'Feedback Status Updated: {feedback.title}',
+                f'Your feedback has been marked as {status}',
+                f'/clubs/{club.id}/'
+            )
+            
+            messages.success(request, "Feedback status updated successfully!")
+    
+    return redirect('view_club_feedbacks', club_id=club.id)
+
+
+@login_required
+def book_mentor_session(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    is_member = Membership.objects.filter(user=request.user, club=club, status='approved').exists()
+    if not is_member:
+        messages.error(request, "You must be a club member to book a mentor session.")
+        return redirect('club_detail', club_id=club.id)
+    
+    if request.method == 'POST':
+        mentor_topic = request.POST.get('mentor_topic')
+        description = request.POST.get('description')
+        preferred_date = request.POST.get('preferred_date')
+        
+        if mentor_topic and description and preferred_date:
+            from .models import MentorSession
+            from datetime import datetime
+            
+            session = MentorSession.objects.create(
+                club=club,
+                student=request.user,
+                mentor_topic=mentor_topic,
+                description=description,
+                preferred_date=datetime.fromisoformat(preferred_date)
+            )
+            
+            from .models import Notification
+            from .utils import create_notification
+            representatives = club.get_representatives()
+            create_notification(
+                representatives,
+                'general',
+                f'New Mentor Session Request from {request.user.username}',
+                f'Topic: {mentor_topic}',
+                f'/clubs/{club.id}/mentor-sessions/'
+            )
+            
+            messages.success(request, "Mentor session request submitted successfully! Club representatives will review it soon.")
+            return redirect('club_detail', club_id=club.id)
+    
+    return render(request, 'clubs/book_mentor_session.html', {'club': club})
+
+
+@login_required
+def view_mentor_sessions(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    if not club.founders.filter(id=request.user.id).exists() and request.user != club.president and request.user != club.vice_president:
+        messages.error(request, "Only club representatives can view mentor sessions.")
+        return redirect('club_detail', club_id=club.id)
+    
+    from .models import MentorSession
+    sessions = MentorSession.objects.filter(club=club)
+    
+    return render(request, 'clubs/view_mentor_sessions.html', {'club': club, 'sessions': sessions})
+
+
+@login_required
+def update_mentor_session(request, session_id):
+    from .models import MentorSession
+    session = get_object_or_404(MentorSession, id=session_id)
+    club = session.club
+    
+    if not club.founders.filter(id=request.user.id).exists() and request.user != club.president and request.user != club.vice_president:
+        messages.error(request, "Only club representatives can manage mentor sessions.")
+        return redirect('club_detail', club_id=club.id)
+    
+    if request.method == 'POST':
+        status = request.POST.get('status')
+        meeting_link = request.POST.get('meeting_link', '')
+        
+        if status in ['approved', 'rejected', 'completed']:
+            session.status = status
+            session.assigned_mentor = request.user
+            session.meeting_link = meeting_link
+            session.save()
+            
+            from .models import Notification
+            from .utils import create_notification
+            create_notification(
+                [session.student],
+                'general',
+                f'Mentor Session {status.title()}: {session.mentor_topic}',
+                f'Your mentor session has been {status}. {"Meeting link: " + meeting_link if meeting_link else ""}',
+                f'/clubs/{club.id}/'
+            )
+            
+            messages.success(request, f"Mentor session {status} successfully!")
+    
+    return redirect('view_mentor_sessions', club_id=club.id)
+
+
+@login_required
+def create_club_meeting(request, club_id):
+    club = get_object_or_404(Club, id=club_id)
+    
+    if not club.founders.filter(id=request.user.id).exists() and request.user != club.president and request.user != club.vice_president:
+        messages.error(request, "Only club representatives can create meetings.")
+        return redirect('club_detail', club_id=club.id)
+    
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        scheduled_time = request.POST.get('scheduled_time')
+        duration_minutes = request.POST.get('duration_minutes', 60)
+        
+        if title and description and scheduled_time:
+            from .models import ClubMeeting
+            from datetime import datetime
+            import uuid
+            
+            meeting = ClubMeeting.objects.create(
+                club=club,
+                title=title,
+                description=description,
+                scheduled_time=datetime.fromisoformat(scheduled_time),
+                duration_minutes=int(duration_minutes),
+                created_by=request.user,
+                meeting_link=f"/clubs/{club.id}/meeting/{uuid.uuid4().hex[:12]}/"
+            )
+            
+            from .utils import notify_club_members
+            notify_club_members(
+                club,
+                'general',
+                f'New Club Meeting: {title}',
+                f'{description}. Scheduled for {scheduled_time}',
+                meeting.meeting_link
+            )
+            
+            messages.success(request, "Club meeting created and members notified!")
+            return redirect('club_detail', club_id=club.id)
+    
+    return render(request, 'clubs/create_meeting.html', {'club': club})
+
+
+@login_required
+def join_club_meeting(request, club_id, meeting_link):
+    club = get_object_or_404(Club, id=club_id)
+    from .models import ClubMeeting
+    
+    meeting = get_object_or_404(ClubMeeting, club=club, meeting_link__contains=meeting_link)
+    
+    is_member = Membership.objects.filter(user=request.user, club=club, status='approved').exists()
+    is_founder = club.founders.filter(id=request.user.id).exists()
+    
+    if not is_member and not is_founder:
+        messages.error(request, "Only club members can join meetings.")
+        return redirect('club_detail', club_id=club.id)
+    
+    meeting.participants.add(request.user)
+    
+    context = {
+        'club': club,
+        'meeting': meeting,
+    }
+    return render(request, 'clubs/meeting_room.html', context)
