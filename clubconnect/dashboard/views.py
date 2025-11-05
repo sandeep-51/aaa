@@ -557,6 +557,8 @@ def admin_analytics_data(request):
         if not found:
             signup_data.append(0)
     
+    total_announcements = Announcement.objects.count()
+    
     return JsonResponse({
         'signin_labels': signin_labels,
         'signin_data': signin_data,
@@ -565,6 +567,7 @@ def admin_analytics_data(request):
         'total_clubs': total_clubs,
         'total_events': total_events,
         'upcoming_events': upcoming_events,
+        'total_announcements': total_announcements,
     })
 
 

@@ -6,65 +6,64 @@
         <div class="col-12">
             <h2 class="mb-4">Admin Dashboard</h2>
             
-            <!-- Stats Cards -->
+            <!-- Analytics Stats Cards -->
             <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="card bg-warning text-white">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-success text-white h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Total Clubs</h5>
-                            <p class="card-text display-4">{{ clubs.count }}</p>
+                            <h5 class="card-title"><i class="fas fa-users"></i> Total Users</h5>
+                            <p class="card-text display-4" id="totalUsersCount">{{ total_users }}</p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card bg-primary text-white">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-primary text-white h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Announcements</h5>
-                            <p class="card-text display-4">{{ announcements.count }}</p>
+                            <h5 class="card-title"><i class="fas fa-university"></i> Total Clubs</h5>
+                            <p class="card-text display-4" id="totalClubsCount">{{ total_clubs }}</p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card bg-info text-white">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-danger text-white h-100">
                         <div class="card-body">
-                            <h5 class="card-title">New Messages</h5>
-                            <p class="card-text display-4">{{ unread_messages }}</p>
+                            <h5 class="card-title"><i class="fas fa-calendar-alt"></i> Total Events</h5>
+                            <p class="card-text display-4" id="totalEventsCount">{{ total_events }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-warning text-white h-100">
+                        <div class="card-body">
+                            <h5 class="card-title"><i class="fas fa-clock"></i> Upcoming Events</h5>
+                            <p class="card-text display-4" id="upcomingEventsCount">{{ upcoming_events_count }}</p>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Analytics Stats Cards -->
             <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card bg-success text-white">
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-info text-white h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Total Users</h5>
-                            <p class="card-text display-4" id="totalUsersCount">{{ total_users }}</p>
+                            <h5 class="card-title"><i class="fas fa-bullhorn"></i> Announcements</h5>
+                            <p class="card-text display-4" id="totalAnnouncementsCount">{{ announcements.count }}</p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card bg-primary text-white">
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-secondary text-white h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Total Clubs</h5>
-                            <p class="card-text display-4" id="totalClubsCount">{{ total_clubs }}</p>
+                            <h5 class="card-title"><i class="fas fa-user-check"></i> Sign-ins (7 days)</h5>
+                            <p class="card-text display-3" id="totalSigninsCount">-</p>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card bg-danger text-white">
+                <div class="col-md-4 mb-3">
+                    <div class="card bg-dark text-white h-100">
                         <div class="card-body">
-                            <h5 class="card-title">Total Events</h5>
-                            <p class="card-text display-4" id="totalEventsCount">{{ total_events }}</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-warning text-white">
-                        <div class="card-body">
-                            <h5 class="card-title">Upcoming Events</h5>
-                            <p class="card-text display-4" id="upcomingEventsCount">{{ upcoming_events_count }}</p>
+                            <h5 class="card-title"><i class="fas fa-user-plus"></i> Sign-ups (7 days)</h5>
+                            <p class="card-text display-3" id="totalSignupsCount">-</p>
                         </div>
                     </div>
                 </div>
@@ -171,13 +170,19 @@
     let signupsChart = null;
 
     function updateAnalytics() {
-        fetch('/dashboard/ajax/admin_analytics/')
+        fetch('/ajax/admin_analytics/')
             .then(response => response.json())
             .then(data => {
                 document.getElementById('totalUsersCount').textContent = data.total_users;
                 document.getElementById('totalClubsCount').textContent = data.total_clubs;
                 document.getElementById('totalEventsCount').textContent = data.total_events;
                 document.getElementById('upcomingEventsCount').textContent = data.upcoming_events;
+                document.getElementById('totalAnnouncementsCount').textContent = data.total_announcements;
+                
+                const totalSignins = data.signin_data.reduce((a, b) => a + b, 0);
+                const totalSignups = data.signup_data.reduce((a, b) => a + b, 0);
+                document.getElementById('totalSigninsCount').textContent = totalSignins;
+                document.getElementById('totalSignupsCount').textContent = totalSignups;
 
                 if (signinsChart) {
                     signinsChart.data.labels = data.signin_labels;

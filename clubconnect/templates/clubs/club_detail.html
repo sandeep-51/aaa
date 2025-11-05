@@ -130,6 +130,12 @@
                                     <p class="mb-1">{{ event.description|truncatechars:150 }}</p>
                                     <small>Location: {{ event.location }}</small>
                                     <div class="mt-2">
+                                        {% if request.user in club.founders.all or request.user == club.president or request.user == club.vice_president %}
+                                            <a href="{% url 'manage_event_attendance' event.id %}" class="btn btn-sm btn-info">
+                                                <i class="fas fa-clipboard-check"></i> Manage Attendance ({{ event.attendances.count }})
+                                            </a>
+                                        {% endif %}
+                                        
                                         {% if request.user.is_authenticated %}
                                             {% if event.id in user_registered_events %}
                                                 <span class="badge bg-success"><i class="fas fa-check"></i> Registered</span>

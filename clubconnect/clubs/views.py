@@ -408,15 +408,55 @@ def generate_event_qr(request, event_id):
 
 @login_required
 def event_checkin(request, event_id):
+    """Student-side or founder-initiated check-in"""
     event = get_object_or_404(Event, id=event_id)
+    user_id = request.GET.get('user_id')
     
+    # If user_id is provided and requester is authorized, check in that user
+    is_authorized = (
+        event.club.founders.filter(id=request.user.id).exists() or
+        request.user == event.club.president or
+        request.user == event.club.vice_president or
+        request.user.is_admin()
+    )
+    
+    if user_id and is_authorized:
+        user_to_checkin = get_object_or_404(User, id=user_id)
+        attendance = EventAttendance.objects.filter(event=event, user=user_to_checkin).first()
+        
+        if attendance and not attendance.checked_in_via_qr:
+            attendance.checked_in_via_qr = True
+            attendance.save()
+            
+            member_points, _ = MemberPoints.objects.get_or_create(
+                user=user_to_checkin,
+                club=event.club
+            )
+            member_points.participation_count += 1
+            member_points.points += 10
+            member_points.save()
+            
+            messages.success(request, f"Successfully checked in {user_to_checkin.username} to {event.title}!")
+        elif attendance and attendance.checked_in_via_qr:
+            messages.info(request, f"{user_to_checkin.username} is already checked in.")
+        else:
+            messages.error(request, f"{user_to_checkin.username} is not registered for this event.")
+        
+        return redirect('manage_event_attendance', event_id=event.id)
+    
+    # Regular student check-in
     attendance, created = EventAttendance.objects.get_or_create(
         event=event,
         user=request.user,
         defaults={'checked_in_via_qr': True}
     )
     
-    if created:
+    if not created and not attendance.checked_in_via_qr:
+        attendance.checked_in_via_qr = True
+        attendance.save()
+        created = True
+    
+    if created or not attendance.checked_in_via_qr:
         member_points, _ = MemberPoints.objects.get_or_create(
             user=request.user,
             club=event.club
@@ -940,3 +980,26 @@ def join_club_meeting(request, club_id, meeting_link):
         'meeting': meeting,
     }
     return render(request, 'clubs/meeting_room.html', context)
+
+
+@login_required
+def manage_event_attendance(request, event_id):
+    """Founder view to manage event attendance and check in students"""
+    event = get_object_or_404(Event, id=event_id)
+    club = event.club
+    
+    if not club.founders.filter(id=request.user.id).exists() and request.user != club.president and request.user != club.vice_president and not request.user.is_admin():
+        messages.error(request, "Only club representatives can manage event attendance.")
+        return redirect('club_detail', club_id=club.id)
+    
+    # Get all registrations for this event
+    registrations = EventAttendance.objects.filter(event=event).select_related('user')
+    checked_in_count = registrations.filter(checked_in_via_qr=True).count()
+    
+    context = {
+        'event': event,
+        'club': club,
+        'registrations': registrations,
+        'checked_in_count': checked_in_count,
+    }
+    return render(request, 'clubs/manage_attendance.html', context)

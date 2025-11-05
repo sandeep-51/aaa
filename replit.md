@@ -11,7 +11,30 @@ ClubConnect is a comprehensive Django-based platform for managing college clubs,
 
 ## Recent Changes (November 5, 2025)
 
-### Latest Updates - Admin Dashboard Analytics & Club Posting Enhancement
+### Latest Updates - QR Code Attendance System & Admin Dashboard Complete
+
+#### 🎫 Advanced QR Code Attendance Management (NEW!)
+- **Founder-side attendance system** for managing event check-ins
+- Founders can now:
+  - View all registered students for any event
+  - See registration count and check-in status
+  - Mark students as attended manually or via QR code
+  - Generate individual QR codes for each registered student
+- **QR Code scanning workflow**:
+  - Students register for events first
+  - Founders access "Manage Attendance" page
+  - Generate QR code for each student
+  - Scan QR code to mark attendance and award points (10 points)
+- **Permission system**:
+  - Founders, presidents, and vice presidents can manage attendance
+  - Only registered students appear in the list
+  - Points awarded automatically on check-in
+- **Visual feedback**:
+  - Color-coded table rows (green for checked-in)
+  - Real-time count of registered vs checked-in students
+  - Status badges for each student
+
+### Previous Updates - Admin Dashboard Analytics & Club Posting Enhancement
 
 #### 📊 Fixed Admin Dashboard Analytics (NEW!)
 - **Fixed analytics charts** to display real data from database
