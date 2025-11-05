@@ -45,4 +45,6 @@ urlpatterns = [
     
     path('<int:club_id>/create-meeting/', views.create_club_meeting, name='create_club_meeting'),
     path('<int:club_id>/meeting/<str:meeting_link>/', views.join_club_meeting, name='join_club_meeting'),
+    path('meeting/<int:meeting_id>/start/', views.start_club_meeting, name='start_club_meeting'),
+    path('meeting/<int:meeting_id>/end/', views.end_club_meeting, name='end_club_meeting'),
 ]

@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponseForbidden
+from django.views.decorators.http import require_POST
 from .models import Club, Event, Membership, Message, Announcement
 from accounts.models import User
 from .forms import ClubForm, EventForm, ClubRegistrationForm, MessageForm, AnnouncementForm
@@ -1015,6 +1016,11 @@ def join_club_meeting(request, club_id, meeting_link):
         messages.error(request, "Only club members can join meetings.")
         return redirect('club_detail', club_id=club.id)
     
+    # Check if meeting has been started by founder
+    if meeting.status != 'started':
+        messages.error(request, "This meeting has not been started yet. Please wait for the organizer to start the meeting.")
+        return redirect('club_detail', club_id=club.id)
+    
     meeting.participants.add(request.user)
     
     context = {
@@ -1022,6 +1028,63 @@ def join_club_meeting(request, club_id, meeting_link):
         'meeting': meeting,
     }
     return render(request, 'clubs/meeting_room.html', context)
+
+
+@login_required
+@require_POST
+def start_club_meeting(request, meeting_id):
+    """Founder view to start a meeting"""
+    from .models import ClubMeeting
+    
+    meeting = get_object_or_404(ClubMeeting, id=meeting_id)
+    club = meeting.club
+    
+    # Check permissions - only representatives can start meetings
+    representatives = club.get_representatives()
+    if request.user not in representatives:
+        messages.error(request, "Only club representatives can start meetings.")
+        return redirect('founder_dashboard')
+    
+    # Start the meeting
+    if meeting.start_meeting(request.user):
+        # Notify all club members
+        from .utils import notify_club_members
+        notify_club_members(
+            club,
+            'general',
+            f'Meeting Started: {meeting.title}',
+            f'{meeting.title} has started! Join now.',
+            meeting.meeting_link
+        )
+        messages.success(request, f"Meeting '{meeting.title}' has been started! Members have been notified.")
+    else:
+        messages.error(request, "Unable to start this meeting. It may have already been started or ended.")
+    
+    return redirect('founder_dashboard')
+
+
+@login_required
+@require_POST
+def end_club_meeting(request, meeting_id):
+    """Founder view to end a meeting"""
+    from .models import ClubMeeting
+    
+    meeting = get_object_or_404(ClubMeeting, id=meeting_id)
+    club = meeting.club
+    
+    # Check permissions - only representatives can end meetings
+    representatives = club.get_representatives()
+    if request.user not in representatives:
+        messages.error(request, "Only club representatives can end meetings.")
+        return redirect('founder_dashboard')
+    
+    # End the meeting
+    if meeting.end_meeting():
+        messages.success(request, f"Meeting '{meeting.title}' has been ended.")
+    else:
+        messages.error(request, "Unable to end this meeting.")
+    
+    return redirect('founder_dashboard')
 
 
 @login_required

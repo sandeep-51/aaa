@@ -247,6 +247,12 @@ class MentorSession(models.Model):
         return f"{self.student.username} - {self.mentor_topic}"
 
 class ClubMeeting(models.Model):
+    STATUS_CHOICES = [
+        ('scheduled', 'Scheduled'),
+        ('started', 'Started'),
+        ('ended', 'Ended'),
+    ]
+    
     club = models.ForeignKey(Club, on_delete=models.CASCADE, related_name='meetings')
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -254,6 +260,10 @@ class ClubMeeting(models.Model):
     duration_minutes = models.IntegerField(default=60)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     meeting_link = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
+    started_at = models.DateTimeField(null=True, blank=True)
+    started_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='started_meetings')
+    ended_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     participants = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='club_meetings', blank=True)
@@ -263,3 +273,34 @@ class ClubMeeting(models.Model):
     
     def __str__(self):
         return f"{self.club.name} - {self.title}"
+    
+    def can_start(self, user):
+        """Check if user can start the meeting"""
+        representatives = self.club.get_representatives()
+        return user in representatives and self.status == 'scheduled'
+    
+    def start_meeting(self, user):
+        """Start the meeting"""
+        if self.can_start(user):
+            from django.utils import timezone
+            self.status = 'started'
+            self.started_at = timezone.now()
+            self.started_by = user
+            self.save()
+            return True
+        return False
+    
+    def end_meeting(self):
+        """End the meeting"""
+        if self.status == 'started':
+            from django.utils import timezone
+            self.status = 'ended'
+            self.ended_at = timezone.now()
+            self.save()
+            return True
+        return False
+    
+    def is_upcoming(self):
+        """Check if meeting is in the future"""
+        from django.utils import timezone
+        return self.scheduled_time > timezone.now() and self.status != 'ended'

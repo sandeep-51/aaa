@@ -95,17 +95,24 @@ def dashboard(request):
         })
         return render(request, 'dashboard/admin_dashboard.html', context)
     elif user.is_founder():
-        from clubs.models import MentorSession, ClubFeedback
+        from clubs.models import MentorSession, ClubFeedback, ClubMeeting
         founder_clubs = Club.objects.filter(founders=user)
         membership_requests = Membership.objects.filter(club__in=founder_clubs, status='pending')
         pending_mentor_sessions = MentorSession.objects.filter(club__in=founder_clubs, status='pending')
         pending_feedbacks = ClubFeedback.objects.filter(club__in=founder_clubs, status='pending')
+        
+        # Get upcoming meetings for founder clubs
+        upcoming_meetings = ClubMeeting.objects.filter(
+            club__in=founder_clubs,
+            scheduled_time__gte=timezone.now()
+        ).exclude(status='ended').order_by('scheduled_time')
         
         context.update({
             'membership_requests': membership_requests,
             'user_clubs': founder_clubs,  # Override with founder's clubs
             'pending_mentor_sessions': pending_mentor_sessions,
             'pending_feedbacks': pending_feedbacks,
+            'upcoming_meetings': upcoming_meetings,
         })
         return render(request, 'dashboard/founder_dashboard.html', context)
     else:  # Default to student dashboard
@@ -626,3 +633,26 @@ def activity_feed(request):
     activity_items = activity_items[:20]
     
     return render(request, 'dashboard/activity_feed.html', {'activity_items': activity_items})
+
+
+@login_required
+def student_club_meetings(request):
+    """View for students to see all club meetings from clubs they're members of"""
+    from clubs.models import ClubMeeting
+    
+    # Get all clubs where user is an approved member
+    user_memberships = Membership.objects.filter(user=request.user, status='approved')
+    user_clubs = [membership.club for membership in user_memberships]
+    
+    # Get all upcoming meetings from these clubs
+    upcoming_meetings = ClubMeeting.objects.filter(
+        club__in=user_clubs,
+        scheduled_time__gte=timezone.now()
+    ).exclude(status='ended').order_by('scheduled_time')
+    
+    context = {
+        'meetings': upcoming_meetings,
+        'user_clubs': user_clubs,
+    }
+    
+    return render(request, 'dashboard/student_club_meetings.html', context)

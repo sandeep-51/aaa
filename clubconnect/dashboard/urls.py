@@ -30,4 +30,5 @@ urlpatterns = [
     path('create-announcement/', views.create_announcement, name='create_announcement'),
     path('announcement/<int:announcement_id>/delete/', views.delete_announcement, name='delete_announcement'),
     path('reset-password/<int:user_id>/', views.reset_user_password, name='reset_user_password'),
+    path('club-meetings/', views.student_club_meetings, name='student_club_meetings'),
 ]

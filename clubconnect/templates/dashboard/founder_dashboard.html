@@ -200,6 +200,68 @@
         </div>
     </div>
     
+    <!-- Upcoming Meetings -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h3><i class="fas fa-video"></i> Upcoming Club Meetings</h3>
+        </div>
+        <div class="card-body">
+            {% if upcoming_meetings %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Meeting Title</th>
+                                <th>Club</th>
+                                <th>Scheduled Time</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for meeting in upcoming_meetings %}
+                            <tr>
+                                <td><strong>{{ meeting.title }}</strong></td>
+                                <td>{{ meeting.club.name }}</td>
+                                <td>{{ meeting.scheduled_time|date:"M d, Y H:i" }}</td>
+                                <td>
+                                    {% if meeting.status == 'scheduled' %}
+                                        <span class="badge bg-secondary">Scheduled</span>
+                                    {% elif meeting.status == 'started' %}
+                                        <span class="badge bg-success">Live Now</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if meeting.status == 'scheduled' %}
+                                        <form method="post" action="{% url 'start_club_meeting' meeting.id %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="fas fa-play"></i> Start Meeting
+                                            </button>
+                                        </form>
+                                    {% elif meeting.status == 'started' %}
+                                        <a href="{{ meeting.meeting_link }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-sign-in-alt"></i> Join
+                                        </a>
+                                        <form method="post" action="{% url 'end_club_meeting' meeting.id %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger">
+                                                <i class="fas fa-stop"></i> End
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No upcoming meetings scheduled.</p>
+            {% endif %}
+        </div>
+    </div>
+    
     <!-- Recent Announcements -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
