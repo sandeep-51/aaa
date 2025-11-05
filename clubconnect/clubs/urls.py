@@ -21,6 +21,7 @@ urlpatterns = [
     path('event/<int:event_id>/generate-qr/', views.generate_event_qr, name='generate_event_qr'),
     path('event/<int:event_id>/checkin/', views.event_checkin, name='event_checkin'),
     path('event/<int:event_id>/register/', views.event_register, name='event_register'),
+    path('event/<int:event_id>/download-qr/', views.download_event_qr, name='download_event_qr'),
     path('event/<int:event_id>/manage-attendance/', views.manage_event_attendance, name='manage_event_attendance'),
     
     path('<int:club_id>/create-survey/', views.create_survey, name='create_survey'),

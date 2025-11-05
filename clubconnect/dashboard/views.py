@@ -389,6 +389,32 @@ def reset_user_password(request, user_id):
     return render(request, 'dashboard/reset_password.html', {'user_to_reset': user_to_reset})
 
 
+@login_required
+@require_POST
+def delete_announcement(request, announcement_id):
+    announcement = get_object_or_404(Announcement, id=announcement_id)
+    
+    if announcement.club:
+        if not announcement.club.founders.filter(id=request.user.id).exists() and not request.user.is_admin():
+            messages.error(request, "You are not authorized to delete this announcement.")
+            return redirect('club_detail', club_id=announcement.club.id)
+        redirect_url = 'club_detail'
+        redirect_id = announcement.club.id
+    else:
+        if not request.user.is_admin():
+            messages.error(request, "You are not authorized to delete this announcement.")
+            return redirect('dashboard')
+        redirect_url = 'dashboard'
+        redirect_id = None
+    
+    announcement.delete()
+    messages.success(request, "Announcement deleted successfully.")
+    
+    if redirect_id:
+        return redirect(redirect_url, club_id=redirect_id)
+    return redirect(redirect_url)
+
+
 
 
 @login_required
@@ -510,52 +536,35 @@ def admin_analytics_data(request):
     now = timezone.now()
     seven_days_ago = now - timedelta(days=7)
     
-    daily_signins = User.objects.filter(
-        last_seen__gte=seven_days_ago
-    ).annotate(
-        date=TruncDate('last_seen')
-    ).values('date').annotate(
-        count=Count('id', distinct=True)
-    ).order_by('date')
+    from django.db.models import Q
     
-    daily_signups = User.objects.filter(
-        date_joined__gte=seven_days_ago
-    ).annotate(
-        date=TruncDate('date_joined')
-    ).values('date').annotate(
-        count=Count('id', distinct=True)
-    ).order_by('date')
+    signin_labels = []
+    signin_data = []
+    signup_data = []
+    
+    daily_signins_dict = {}
+    for user in User.objects.filter(last_seen__gte=seven_days_ago, last_seen__isnull=False):
+        date_key = user.last_seen.date()
+        daily_signins_dict[date_key] = daily_signins_dict.get(date_key, 0) + 1
+    
+    daily_signups_dict = {}
+    for user in User.objects.filter(date_joined__gte=seven_days_ago):
+        date_key = user.date_joined.date()
+        daily_signups_dict[date_key] = daily_signups_dict.get(date_key, 0) + 1
+    
+    today = now.date()
+    start_date = (now - timedelta(days=6)).date()
+    
+    for i in range(7):
+        date = start_date + timedelta(days=i)
+        signin_labels.append(date.strftime('%b %d'))
+        signin_data.append(daily_signins_dict.get(date, 0))
+        signup_data.append(daily_signups_dict.get(date, 0))
     
     total_users = User.objects.count()
     total_clubs = Club.objects.count()
     total_events = Event.objects.count()
     upcoming_events = Event.objects.filter(start_time__gte=now).count()
-    
-    signin_labels = []
-    signin_data = []
-    signup_data_dict = {str(item['date']): item['count'] for item in daily_signups}
-    
-    for i in range(7):
-        date = (seven_days_ago + timedelta(days=i)).date()
-        signin_labels.append(date.strftime('%b %d'))
-        signin_data.append(0)
-    
-    for item in daily_signins:
-        date_str = str(item['date'])
-        if date_str in [str((seven_days_ago + timedelta(days=i)).date()) for i in range(7)]:
-            idx = signin_labels.index(item['date'].strftime('%b %d'))
-            signin_data[idx] = item['count']
-    
-    signup_data = []
-    for label in signin_labels:
-        found = False
-        for item in daily_signups:
-            if item['date'].strftime('%b %d') == label:
-                signup_data.append(item['count'])
-                found = True
-                break
-        if not found:
-            signup_data.append(0)
     
     total_announcements = Announcement.objects.count()
     

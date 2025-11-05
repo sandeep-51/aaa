@@ -500,6 +500,48 @@ def event_register(request, event_id):
 
 
 @login_required
+def download_event_qr(request, event_id):
+    """Generate and download QR code for student's event registration"""
+    from .models import EventAttendance
+    
+    event = get_object_or_404(Event, id=event_id)
+    
+    attendance = EventAttendance.objects.filter(event=event, user=request.user).first()
+    if not attendance:
+        messages.error(request, "You are not registered for this event.")
+        return redirect('club_detail', club_id=event.club.id)
+    
+    import qrcode
+    from io import BytesIO
+    from django.http import HttpResponse
+    
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    
+    checkin_url = request.build_absolute_uri(
+        f'/clubs/event/{event.id}/checkin/?user_id={request.user.id}'
+    )
+    
+    qr.add_data(checkin_url)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buffer = BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer, content_type='image/png')
+    response['Content-Disposition'] = f'attachment; filename="event_qr_{event.id}_{request.user.username}.png"'
+    
+    return response
+
+
+@login_required
 def create_survey(request, club_id):
     club = get_object_or_404(Club, id=club_id)
     
